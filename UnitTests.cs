@@ -1,4 +1,20 @@
+using Jil;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
 using Xunit;
+using OsLib;
+using RaiUtils;
+using JsonPit;
 
 public class JsonPitTestClass
 {
