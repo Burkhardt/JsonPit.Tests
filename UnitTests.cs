@@ -23,6 +23,7 @@ public class JsonPitTestClass
     {
         // Initialize the JsonPit
         var pit = new Pit(pitDirectory: Os.CloudStorageRoot + "ObjectPit/", readOnly: false);
+        // no file not found exception will be thrown if the path does not exist
 
         // Create a PitItem
         var pitItem = new PitItem("RSB");
