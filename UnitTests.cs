@@ -103,7 +103,7 @@ public class JsonPitTestClass
 
         // Create a PitItem
         var pitItem = new PitItem("RSB");
-        pitItem.SetProperty(new { Age = 60 });
+        pitItem.SetProperty(new { Age = 61 });
         pitItem.SetProperty(new { Children = 7 });
         pitItem.SetProperty(new { Kids = new[] { "Nina", "Hannah", "Vuyisile", "Kilian", "Laura", "Mbali", "Logan" } });
         pit.Add(pitItem);
@@ -128,7 +128,7 @@ public class JsonPitTestClass
         var Name = item["Name"]?.ToString();
         Assert.Equal("RSB", Name);
         var Age = item["Age"];
-        Assert.Equal(60, Convert.ToInt16(Age));
+        Assert.Equal(61, Convert.ToInt16(Age));
         var Children = item["Children"];
         Assert.Equal(7, Convert.ToInt16(Children));
         var Kids = item["Kids"]?.ToObject<List<string>>();
@@ -137,7 +137,5 @@ public class JsonPitTestClass
         var Kids2 = item2["Kids"]?.ToObject<List<string>>();
         var Kid5 = Kids2?[5];
         Assert.Equal("Mbali", Kid5);
-
     }
-
 }
