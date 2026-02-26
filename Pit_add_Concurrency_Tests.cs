@@ -12,7 +12,16 @@ namespace JsonPit.Tests
 {
 	public sealed class Pit_Add_Concurrency_Tests
 	{
-		private long Seconds = (long)(DateTime.Now - new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Local)).TotalSeconds;
+		#region unique id per test per threat
+		private static long RefreshedNonce = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+		private long RefreshedValue
+		{
+			get
+			{
+				return (uint)Environment.CurrentManagedThreadId ^ Interlocked.Increment(ref RefreshedNonce);
+			}
+		}
+		#endregion
 		private static string JsonPitTest_PitFileName = Os.CloudStorageRoot + "PitFiles/Test/JsonPitTests";
 		private static Pit jsonPitTestsPit = new Pit(JsonPitTest_PitFileName, readOnly: false);
 		
@@ -38,10 +47,10 @@ namespace JsonPit.Tests
 		{
 			// Arrange
 			//Open_JsonPitTests_Pit();
-			Seconds++;	// only the same for this test
+			var refreshed = RefreshedValue;	// different per threat and per test
 			var item = new PitItem("AAPL");
 			item.SetProperty(new { Price = 262.77 });
-			item.SetProperty(new { Refreshed = Seconds });
+			item.SetProperty(new { Refreshed = refreshed });
 
 			// Act
 			var added = jsonPitTestsPit.Add(item);
@@ -61,11 +70,11 @@ namespace JsonPit.Tests
 		{
 			// Arrange
 			//Open_JsonPitTests_Pit();
-			Seconds++;  // only the same for this test
+			var refreshed = RefreshedValue;
 
 			var item1 = new PitItem("AAPL");
 			item1.SetProperty(new { Price = 262.77 });
-			item1.SetProperty(new { Refreshed = Seconds });
+			item1.SetProperty(new { Refreshed = refreshed });
 
 			// Add first time
 			var added1 = jsonPitTestsPit.Add(item1);
@@ -75,7 +84,7 @@ namespace JsonPit.Tests
 			Thread.Sleep(10);   // makes implicitely sure that item2.Modified is later than item1.Modified
 			var item2 = new PitItem("AAPL");
 			item2.SetProperty(new { Price = 262.77 });
-			item2.SetProperty(new { Refreshed = Seconds });
+			item2.SetProperty(new { Refreshed = refreshed });
 			
 			// I probably do not have to do that - manual adjustment; writing to Modified is allowed
 			// item2.Modified = item1.Modified.AddMilliseconds(10);
@@ -94,19 +103,21 @@ namespace JsonPit.Tests
 		public void Add_DuplicateItem_ReturnsFalse_AndDoesNotIncreaseHistory()
 		{
 			// Arrange
-			//Open_JsonPitTests_Pit();
-			Seconds++;
+			Open_JsonPitTests_Pit();
+			var refreshed = RefreshedValue; // // make sure, item1 is new to the pit; item2 will be a duplicate
 
 			var item1 = new PitItem("AAPL");
 			item1.SetProperty(new { Price = 262.77 });
-			item1.SetProperty(new { Refreshed = Seconds });
+			item1.SetProperty(new { Refreshed = refreshed });
 
 			// Copy constructor preserves Modified and contents (per your PitItem(PitItem other) implementation)
 			var item2 = new PitItem(item1);
 			item2.SetProperty(new { Price = 262.77 });
-			item2.SetProperty(new { Refreshed = Seconds });
+			item2.SetProperty(new { Refreshed = refreshed });
 
 			// Act
+			var countStart = jsonPitTestsPit.HistoricItems["AAPL"].Count;
+
 			var added1 = jsonPitTestsPit.Add(item1);
 			var countAfter1 = jsonPitTestsPit.HistoricItems["AAPL"].Count; // assumes Count exists (it’s used in Peek)
 
@@ -117,7 +128,10 @@ namespace JsonPit.Tests
 			Assert.True(added1);
 			Assert.False(added2);
 
+			Assert.NotEqual(countStart, countAfter1);
 			Assert.Equal(countAfter1, countAfter2);
+
+			jsonPitTestsPit.Save();
 		}
 
 		[Fact]

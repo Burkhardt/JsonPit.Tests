@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Xunit;
 using OsLib;
 
@@ -9,11 +10,85 @@ namespace JsonPit.Tests
 {
 	public class OsLibTests
 	{
+		private static void ResetOsCaches()
+		{
+			var osType = typeof(Os);
+			osType.GetField("homeDir", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, null);
+			osType.GetField("type", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, null);
+			osType.GetField("dIRSEPERATOR", BindingFlags.Static | BindingFlags.NonPublic)?.SetValue(null, null);
+		}
+
 		private static string CreateTempDir()
 		{
 			var root = Path.Combine(Path.GetTempPath(), "OsLibTests", Guid.NewGuid().ToString("N")) + Path.DirectorySeparatorChar;
 			Directory.CreateDirectory(root);
 			return root;
+		}
+
+		[Fact]
+		public void Os_Type_UsesRuntimePlatformDetection()
+		{
+			ResetOsCaches();
+			var expected = System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)
+				? OsType.Windows
+				: OsType.UNIX;
+
+			Assert.Equal(expected, Os.Type);
+		}
+
+		[Fact]
+		public void Os_DirSeparator_MatchesSystemDirectorySeparatorChar()
+		{
+			ResetOsCaches();
+			Assert.Equal(Path.DirectorySeparatorChar.ToString(), Os.DIRSEPERATOR);
+		}
+
+		[Fact]
+		public void Os_HomeDir_UsesWindowsVariables_OnWindows()
+		{
+			if (Os.Type != OsType.Windows)
+				return;
+
+			var oldUserProfile = Environment.GetEnvironmentVariable("USERPROFILE");
+			var oldHomeDrive = Environment.GetEnvironmentVariable("HOMEDRIVE");
+			var oldHomePath = Environment.GetEnvironmentVariable("HOMEPATH");
+			try
+			{
+				Environment.SetEnvironmentVariable("USERPROFILE", "C:\\Users\\UnitTestUser");
+				Environment.SetEnvironmentVariable("HOMEDRIVE", "C:");
+				Environment.SetEnvironmentVariable("HOMEPATH", "\\Users\\FallbackUser");
+				ResetOsCaches();
+
+				Assert.Equal("C:\\Users\\UnitTestUser", Os.HomeDir);
+			}
+			finally
+			{
+				Environment.SetEnvironmentVariable("USERPROFILE", oldUserProfile);
+				Environment.SetEnvironmentVariable("HOMEDRIVE", oldHomeDrive);
+				Environment.SetEnvironmentVariable("HOMEPATH", oldHomePath);
+				ResetOsCaches();
+			}
+		}
+
+		[Fact]
+		public void Os_HomeDir_UsesHomeVariable_OnUnix()
+		{
+			if (Os.Type != OsType.UNIX)
+				return;
+
+			var oldHome = Environment.GetEnvironmentVariable("HOME");
+			try
+			{
+				Environment.SetEnvironmentVariable("HOME", "/tmp/oslib-home-unittest");
+				ResetOsCaches();
+
+				Assert.Equal("/tmp/oslib-home-unittest", Os.HomeDir);
+			}
+			finally
+			{
+				Environment.SetEnvironmentVariable("HOME", oldHome);
+				ResetOsCaches();
+			}
 		}
 
 		[Fact]
