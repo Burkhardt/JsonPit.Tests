@@ -242,29 +242,30 @@ namespace JsonPit.Tests
 		[Fact]
 		public void GetAt_ReturnsItemAtOrBeforeTimestamp()
 		{
-			var pitPath = (new RaiPath(Os.CloudStorageRoot) / "PitFiles" / "Test" / "GetAtTests").Path;
+			var pitPath = ((new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / Guid.NewGuid().ToString("N")).Path;
+			var symbol = "T" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
 			try
 			{
-				var pit = new Pit(pitPath, readOnly: false, unflagged: true);
+				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
 				var baseTs = DateTimeOffset.UtcNow;
 
-				var item1 = new PitItem("AAPL", invalidate: false, timestamp: baseTs.AddMinutes(-2));
+				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				item1["Price"] = 1;
 				pit.Add(item1);
 
-				var item2 = new PitItem("AAPL", invalidate: false, timestamp: baseTs.AddMinutes(-1));
+				var item2 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				item2["Price"] = 2;
 				pit.Add(item2);
 
-				var item3 = new PitItem("AAPL", invalidate: false, timestamp: baseTs);
+				var item3 = new PitItem(symbol, invalidate: false, timestamp: baseTs);
 				item3["Price"] = 3;
 				pit.Add(item3);
 
-				var atItem2 = pit.GetAt("AAPL", item2.Modified.AddTicks(1));
+				var atItem2 = pit.GetAt(symbol, item2.Modified.AddTicks(1));
 				Assert.NotNull(atItem2);
 				Assert.Equal(2, atItem2["Price"]!.Value<int>());
 
-				var beforeAll = pit.GetAt("AAPL", baseTs.AddMinutes(-3));
+				var beforeAll = pit.GetAt(symbol, baseTs.AddMinutes(-3));
 				Assert.Null(beforeAll);
 
 				//Assert.True(pit.Invalid());	// invalidate: false above makes this one fail
@@ -275,33 +276,35 @@ namespace JsonPit.Tests
 			finally
 			{
 				var dir = new RaiFile(pitPath);
-				dir.rmdir(depth: 3, deleteFiles: true);    // remove pitPath, pitFile inside, Changes directory, changes inside => 2 should be enough
+				if (Directory.Exists(dir.Path))
+					dir.rmdir(depth: 10, deleteFiles: true);
 			}
 		}
 
 		[Fact]
 		public void GetAt_RespectsDeletedFlag()
 		{
-			var pitPath = (new RaiPath(Os.CloudStorageRoot) / "PitFiles" / "Test" / "GetAtTests").Path;
+			var pitPath = ((new RaiPath(Path.GetTempPath())) / "JsonPitTests" / "GetAtTests" / Guid.NewGuid().ToString("N")).Path;
+			var symbol = "T" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
 			try
 			{
-				var pit = new Pit(pitPath, readOnly: false, unflagged: true);
+				var pit = new Pit(pitPath, readOnly: false, unflagged: true, autoload: false);
 				var baseTs = DateTimeOffset.UtcNow;
 
-				var item1 = new PitItem("AAPL", invalidate: false, timestamp: baseTs.AddMinutes(-2));
+				var item1 = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-2));
 				item1["Price"] = 1;
 				pit.Add(item1);
 
 				pit.Save(force: true);  // why do I need to force it? because invalidate was set to false above
 
-				var deleted = new PitItem("AAPL", invalidate: false, timestamp: baseTs.AddMinutes(-1));
+				var deleted = new PitItem(symbol, invalidate: false, timestamp: baseTs.AddMinutes(-1));
 				deleted.Deleted = true;
 				pit.Add(deleted);
 
-				var hidden = pit.GetAt("AAPL", deleted.Modified.AddTicks(1));
+				var hidden = pit.GetAt(symbol, deleted.Modified.AddTicks(1));
 				Assert.Null(hidden);
 
-				var visibleDeleted = pit.GetAt("AAPL", deleted.Modified.AddTicks(1), withDeleted: true);
+				var visibleDeleted = pit.GetAt(symbol, deleted.Modified.AddTicks(1), withDeleted: true);
 				Assert.NotNull(visibleDeleted);
 				Assert.True(visibleDeleted!.Deleted);
 
@@ -310,7 +313,8 @@ namespace JsonPit.Tests
 			finally
 			{
 				var dir = new RaiFile(pitPath);
-				dir.rmdir(depth: 3, deleteFiles: true);	// remove pitPath, pitFile inside, Changes directory, changes inside => 2 should be enough
+				if (Directory.Exists(dir.Path))
+					dir.rmdir(depth: 10, deleteFiles: true);
 			}
 		}
 	}
